@@ -106,6 +106,45 @@
     };
 
     /**
+     * Extracts red, green, or blue component an image patch. Can be used for the whole canvas, detected face, detected eye, etc.
+     * @param  {Array} imageData - image data to be grayscaled
+     * @param  {Number} rgb - 0 for r, 1 for b, 2 for g
+     * @return {Array} RG or B component of image patch
+     */
+    self.webgazer.util.rgbExtract = function(imageData, rgb){
+        //[0][1][2][3] = [r][g][b][a]
+        var arr = [];
+        for (i = rgb; i < imageData.length; i = i + 4) {
+            arr.push(imageData[i])
+        }
+        return arr;
+    };
+
+    /**
+     * Extracts red, green, or blue component an image patch. Can be used for the whole canvas, detected face, detected eye, etc.
+     * @param  {Array} imageDataR - image data for the red channel
+     * @param  {Array} imageDataG - image data for the green channel
+     * @param  {Array} imageDataB - image data for the blue channel
+     * @return {Array} RGB components combined of image patch
+     */
+    self.webgazer.util.rgbConstruct = function(imageDataR, imageDataG, imageDataB){
+        //[0][1][2][3] = [r][g][b][a]
+        var arr = [];
+        for (i = rgb; i < imageData.length; i = i + 3) {
+            for (j = 0; j < 3; j++) {
+                var current = imageDataR;
+                if (j == 1) {
+                    current = imageDataG;
+                } else if (j == 2) {
+                    current = imageDataB;
+                }
+                arr[i+j] = current[i];
+            }
+        }
+        return arr;
+    };
+
+    /**
      * Increase contrast of an image
      * @param {Array} grayscaleImageSrc - grayscale integer array
      * @param {Number} step - sampling rate, control performance
