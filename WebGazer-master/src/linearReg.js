@@ -62,6 +62,125 @@
     };
 
     /**
+     * Calculate k random cluster centroids
+     * @param k - the number of random clusters to generate
+     * @param dataMin - The minimum data to run kmeans on
+     * @param dataMax - The maximum data to run kmeans on
+     * @returns {Array.Array} 2D array of k random cluster centroids
+     */
+    webgazer.reg.LinearReg.prototype.initializeMeans = function(k, dataMin, dataMax) {
+        if (!k) {
+            k = 4;
+        }
+        
+        var means = [];
+        for (var i = 0; i < k; i++) {
+            var mean = [];
+            for (var dim in dataMin) {
+                mean[dim] = dataMin[dim] + Math.random() * (dataMax[dim] - dataMin[dim]);
+            }
+            means[i] = mean;
+        }
+        return means;
+    };
+
+    /**
+     * Calculate k-means cluster assignemnts
+     * @param k - the number of random clusters to generate
+     * @param data - The data to run kmeans on
+     * @returns {Array.Array} 2D array of the closest cluster centroids for each data point
+     */
+    webgazer.reg.LinearReg.prototype.kMeansCluster = function(k, data, means) {
+        
+        closestCentroids = [];
+        for (var x in data) {
+            var distances = [];
+            for (var y in means) {
+                var sum = 0;
+                //Calculate euclidean distance between each data point and the cluster center
+                for (var dim in data[x]) {
+                    var diff = data[x][dim] - means[y][dim];
+                    sum += Math.pow(diff, 2);
+                }
+                distances[y] = Math.sqrt(sum);
+            }
+            //Set the closest centroid for this data point to be the minimum distance
+            //Where x is the index of the data point and closestCentroids[x] is the index of the cluster center
+            closestCentroids[x] = distances.indexOf(Math.min.apply(Math, distances));
+        }
+        return closestCentroids
+    };
+
+    /**
+     * Calculate k-means
+     * @param k - the number of random clusters to generate
+     * @param data - The data to run kmeans on
+     * @returns {Array.Array} 2D array of k means
+     */
+    webgazer.reg.LinearReg.prototype.kMeansCluster = function(k, data) {
+        //calculate data extremes
+        var dataMin = [];
+        var dataMax = [];
+        for (var i in data) {
+            for (var dim in data[i]) {
+                if (!dataMin[dim]) {
+                    dataMin[dim] = Number.MAX_VALUE;
+                    dataMax[dim] = Number.MIN_VALUE;
+                }
+                if (data[i][dim] < dataMin[dim]) {
+                    dataMin[dim] = data[i][dim];
+                } 
+                if (data[i][dim] < dataMax[dim]) {
+                    dataMax[dim] = data[i][dim];
+                }
+            }
+        }
+
+        //initialize k random cluster centroids
+        var means = webgazer.reg.LinearReg.prototype.initializeMeans(k, dataMin, dataMax);
+        var closestCentroids = webgazer.reg.LinearReg.prototype.kMeansCluster(k, data, means);
+
+        //Have our cluster centroids moved
+        var hasMoved = false;
+        var timesMoved = 0;
+
+        while (!hasMoved || timesMoved < 50) {
+            var dimensionSums = []; //sum of the data points dimensions
+            var numPoints = []; //number of data points that we are averaging dimensions of
+
+            for (var i in closestCentroids) {
+                var idx = closestCentroids[i];
+                numPoints[idx]++;
+                for (var dim in means[idx]) {
+                    sums[idx][dim] += data[i][dim];
+                }
+            }
+
+            for (var i in dimensionSums) {
+                //If a mean has no points:
+                if (numPoints[i] == 0) {
+                    for (var dim in dataMin) {
+                        dimensionSums[i][dim] = dataMin[dim] + Math.random() * (dataMax[dim] - dataMin[dim]);
+                    }
+                }
+                //If a mean has points: 
+                for (var dim in dimensionSums[i]) {
+                    dimensionSums[i][dim] /= numPoints[i];
+                }
+            }
+
+            //check if the cluster centroids have moved:
+            if (means.toString() != dimensionSums.toString()) {
+                hasMoved = true;
+            }
+
+            means = sums;
+            timesMoved++;
+        }
+        return means;
+    };
+
+    /**
      * Try to predict coordinates from pupil data
      * after apply linear regression on data set
      * @param {Object} eyesObj - The current user eyes object
