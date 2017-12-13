@@ -29,11 +29,12 @@
                   [0, 1/2,  0,  1/2,  0,  1]];// * delta_t
         var delta_t = 1/10; // The amount of time between frames
         Q = numeric.mul(Q, delta_t);
+        Q = numeric.mul(Q, 1/2);
         var H = [ [1, 0, 0, 0, 0, 0],
                   [0, 1, 0, 0, 0, 0],
                   [0, 0, 1, 0, 0, 0],
                   [0, 0, 0, 1, 0, 0]];
-        var pixel_error = 6.5; //We will need to fine tune this value
+        var pixel_error = 6.5;//6.5; //We will need to fine tune this value
         //This matrix represents the expected measurement error
         var R = numeric.mul(numeric.identity(4), pixel_error);
 

@@ -117,7 +117,7 @@
      * @param data - The data to run kmeans on
      * @returns {Array.Array} 2D array of k means
      */
-    webgazer.reg.LinearReg.prototype.kMeansCluster = function(k, data) {
+    webgazer.reg.LinearReg.prototype.kMeans = function(k, data) {
         //calculate data extremes
         var dataMin = [];
         var dataMax = [];
@@ -137,8 +137,8 @@
         }
 
         //initialize k random cluster centroids
-        var means = webgazer.reg.LinearReg.prototype.initializeMeans(k, dataMin, dataMax);
-        var closestCentroids = webgazer.reg.LinearReg.prototype.kMeansCluster(k, data, means);
+        var means = initializeMeans(k, dataMin, dataMax);
+        var closestCentroids = kMeansCluster(k, data, means);
 
         //Have our cluster centroids moved
         var hasMoved = false;
@@ -190,19 +190,31 @@
         if (!eyesObj) {
             return null;
         }
-        var result = regression('linear', this.leftDatasetX);
+        //Before performing linear regression, we will cluster the data using k-means
+        //TODO
+        var numClusters = 5;
+        var leftXKMeans = kMeans(numClusters, this.leftDatasetX);
+        var leftYKMeans = kMeans(numClusters, this.leftDatasetY);
+        var rightXKMeans = kMeans(numClusters, this.rightDatasetX);
+        var rightYKMeans = kMeans(numClusters, this.rightDatasetY);
+
+        //var result = regression('linear', this.leftDatasetX);
+        var result = regression('linear', leftXKMeans);
         var leftSlopeX = result.equation[0];
         var leftIntersceptX = result.equation[1];
 
-        result = regression('linear', this.leftDatasetY);
+        //result = regression('linear', this.leftDatasetY);
+        result = regression('linear', leftYKMeans);
         var leftSlopeY = result.equation[0];
         var leftIntersceptY = result.equation[1];
 
-        result = regression('linear', this.rightDatasetX);
+        //result = regression('linear', this.rightDatasetX);
+        result = regression('linear', rightXKMeans);
         var rightSlopeX = result.equation[0];
         var rightIntersceptX = result.equation[1];
 
-        result = regression('linear', this.rightDatasetY);
+        //result = regression('linear', this.rightDatasetY);
+        result = regression('linear', rightYKMeans);
         var rightSlopeY = result.equation[0];
         var rightIntersceptY = result.equation[1];
         
@@ -216,6 +228,7 @@
 
         var predictedX = Math.floor((((leftSlopeX * leftPupilX) + leftIntersceptX) + ((rightSlopeX * rightPupilX) + rightIntersceptX))/2);
         var predictedY = Math.floor((((leftSlopeY * leftPupilY) + leftIntersceptY) + ((rightSlopeY * rightPupilY) + rightIntersceptY))/2);
+        
         return {
             x: predictedX,
             y: predictedY
@@ -226,6 +239,6 @@
      * The LinearReg object name
      * @type {string}
      */
-    webgazer.reg.LinearReg.prototype.name = 'simple';
+    webgazer.reg.LinearReg.prototype.name = 'simple'; //Maybe change this to linear?
     
 }(window));

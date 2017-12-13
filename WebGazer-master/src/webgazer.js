@@ -62,7 +62,8 @@
 
     //currently used tracker and regression models, defaults to clmtrackr and linear regression
     var curTracker = new webgazer.tracker.ClmGaze();
-    var regs = [new webgazer.reg.RidgeReg()];
+    //var regs = [new webgazer.reg.RidgeReg()];
+    var regs = [new webgazer.reg.LinearReg()];
     var blinkDetector = new webgazer.BlinkDetector();
 
     //lookup tables
@@ -72,10 +73,10 @@
         'js_objectdetect': function() { return new webgazer.tracker.Js_objectdetectGaze(); }
     };
     var regressionMap = {
+        'linear': function() { return new webgazer.reg.LinearReg(); },
         'ridge': function() { return new webgazer.reg.RidgeReg(); },
         'weightedRidge': function() { return new webgazer.reg.RidgeWeightedReg(); },
-        'threadedRidge': function() { return new webgazer.reg.RidgeRegThreaded(); },
-        'linear': function() { return new webgazer.reg.LinearReg(); }
+        'threadedRidge': function() { return new webgazer.reg.RidgeRegThreaded(); }
     };
 
     //localstorage name
