@@ -21,7 +21,7 @@
     };
 
     webgazer.BlinkDetector.prototype.extractBlinkData = function(eyesObj) {
-        var useRGB = false;
+        var useRGB = true;
         if (useRGB) {
             const eye = eyesObj.right;
             //const grayscaled = webgazer.util.grayscale(eye.patch.data, eye.width, eye.height);
