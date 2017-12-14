@@ -3,6 +3,11 @@ import csv
 import cv2
 import numpy as np
 import tensorflow as tf
+from time import gmtime, strftime
+
+with open('CNNresults/results.csv', 'wb') as csvfile:
+	wr = csv.writer(csvfile, dialect='excel')
+	wr.writerow(['Time Stamp:', strftime("%Y-%m-%d %H:%M:%S", gmtime())])
 
 ######################################################################################
 ##################################### Parameters #####################################
@@ -21,41 +26,44 @@ learnRate = 0.001
 ################################## CNN Architecture ##################################
 ######################################################################################
 
+imgBatch = tf.placeholder(tf.float32, [batchSz, imgH, imgW, 1])
+labels = tf.placeholder(tf.float32, [batchSz, 1])
+
 def cnn(batch):
 	conv1 = tf.layers.conv2d(
 		inputs=batch,
-        filters=24,
-        kernel_size=[7, 7],
-        padding="valid",
-        activation=tf.nn.relu)
-	pool1 = tf.layers.max_pooking2d(
+		filters=24,
+		kernel_size=[7, 7],
+		padding="valid",
+		activation=tf.nn.relu)
+	pool1 = tf.layers.max_pooling2d(
 		inputs=conv1,
 		pool_size=[2, 2],
 		strides=2)
 	conv2 = tf.layers.conv2d(
-        inputs=pool1,
-        filters=24,
-        kernel_size=[5, 5],
-        padding="valid",
-        activation=tf.nn.relu)
-    pool2 = tf.layers.max_pooling2d(
-    	inputs=conv2, 
-    	pool_size=[2, 2], 
-    	strides=2)
-    conv3 = tf.layers.conv2d(
-        inputs=pool2,
-        filters=24,
-        kernel_size=[3, 3],
-        padding="valid",
-        activation=tf.nn.relu)
-    pool3 = tf.layers.max_pooling2d(
-    	inputs=conv3, 
-    	pool_size=[2, 2], 
-    	strides=2)
+		inputs=pool1,
+		filters=24,
+		kernel_size=[5, 5],
+		padding="valid",
+		activation=tf.nn.relu)
+	pool2 = tf.layers.max_pooling2d(
+		inputs=conv2, 
+		pool_size=[2, 2], 
+		strides=2)
+	conv3 = tf.layers.conv2d(
+		inputs=pool2,
+		filters=24,
+		kernel_size=[3, 3],
+		padding="valid",
+		activation=tf.nn.relu)
+	pool3 = tf.layers.max_pooling2d(
+		inputs=conv3, 
+		pool_size=[2, 2], 
+		strides=2)
 
-    flatten = tf.reshape()
-    feature_vector = tf.layers.dense(
-		inputs=pool3,
+	flatten = tf.reshape(pool3, [batchSz, 2 * 2 * 3 * 12])
+	feature_vector = tf.layers.dense(
+		inputs=flatten,
 		units=4096,
 		activation=tf.nn.relu)
 
@@ -63,7 +71,9 @@ def cnn(batch):
 
 logits = tf.layers.dense(inputs=cnn(imgBatch), units=1)
 coordinates = logits
-loss = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels)
+#loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels))
+#loss = tf.reduce_mean(tf.metrics.mean_squared_error(labels, logits))
+loss = tf.reduce_mean(tf.square(tf.subtract(logits, labels)))
 train = tf.train.AdamOptimizer(learnRate).minimize(loss)
 
 sess = tf.Session()
@@ -76,20 +86,21 @@ saver = tf.train.Saver()
 peopleProcessed = 0
 framesProcessed = 0
 testsProcessed = 0
+framesSetup = 0
 
 with open('/course/cs143/datasets/webgazer/framesdataset/train_1430_1.txt') as f:
-    trainPaths = f.readlines()
+	trainPaths = f.readlines()
 
 with open('/course/cs143/datasets/webgazer/framesdataset/test_1430_1.txt') as f:
-    testPaths = f.readlines()
+	testPaths = f.readlines()
 
 for i in range(65):
-	pTrainPaths = list(map(lambda x: x.replace("\\", "/").replace("\n", ""), filter(lambda x: x.split("\\")[0] == 'P_' + str(1), trainPaths)))
-	pTestPaths = list(map(lambda x: x.replace("\\", "/").replace("\n", ""), filter(lambda x: x.split("/")[0] == 'P_' + str(i), testPaths)))
+	pTrainPaths = list(map(lambda x: x.replace("\\", "/").replace("\n", ""), filter(lambda x: x.split("\\")[0] == 'P_' + str(i), trainPaths)))
+	pTestPaths = list(map(lambda x: x.replace("\\", "/").replace("\n", ""), filter(lambda x: x.split("\\")[0] == 'P_' + str(i), testPaths)))
 
 	if len(pTrainPaths) != 0 and len(pTestPaths) != 0:
 		peopleProcessed += 1
-		if peopleProcessed % 10 == 0:
+		if peopleProcessed % 1 == 0:
 			print('People Processed:', peopleProcessed)
 
 		trainREyes = []
@@ -113,131 +124,151 @@ for i in range(65):
 		testLabelsX = []
 
 		testGazerY = []
-        testGazerX = []
+		testGazerX = []
+
+		print('Building Data')
+
+		print('Building Training Data')
 
 		for path in pTrainPaths:
 			predPath = '/course/cs143/datasets/webgazer/framesdataset/' + path + '/gazePredictions.csv'
 
 			with open(predPath) as f:
-    			readCSV = csv.reader(f, delimiter=',')
-    			for row in readCSV:
+				readCSV = csv.reader(f, delimiter=',')
+				for row in readCSV:
+					framesProcessed += 1
+					if framesProcessed % 5000 == 0:
+						print('Collected data from %d frames' % framesProcessed)
 
-			        frameFilename = row[0]
-			        frameTimestamp = row[1]
-			        tobiiLeftEyeGazeX = float( row[2] )
-			        tobiiLeftEyeGazeY = float( row[3] )
-			        tobiiRightEyeGazeX = float( row[4] )
-			        tobiiRightEyeGazeY = float( row[5] )
-			        webgazerX = float( row[6] )
-			        webgazerY = float( row[7] )
-			        clmTracker = row[8:len(row)-1]
-			        clmTracker = [float(i) for i in clmTracker]
-			        clmTrackerInt = [int(i) for i in clmTracker]
+					frameFilename = row[0]
+					frameTimestamp = row[1]
+					tobiiLeftEyeGazeX = float( row[2] )
+					tobiiLeftEyeGazeY = float( row[3] )
+					tobiiRightEyeGazeX = float( row[4] )
+					tobiiRightEyeGazeY = float( row[5] )
+					webgazerX = float( row[6] )
+					webgazerY = float( row[7] )
+					clmTracker = row[8:len(row)-1]
+					clmTracker = [float(m) for m in clmTracker]
+					clmTrackerInt = [int(m) for m in clmTracker]
 
-			        tobiiEyeGazeX = (tobiiLeftEyeGazeX + tobiiRightEyeGazeX) / 2
-			        tobiiEyeGazeY = (tobiiLeftEyeGazeY + tobiiRightEyeGazeY) / 2
+					tobiiEyeGazeX = (tobiiLeftEyeGazeX + tobiiRightEyeGazeX) / 2
+					tobiiEyeGazeY = (tobiiLeftEyeGazeY + tobiiRightEyeGazeY) / 2
 
-			        lEyeMidY = clmTrackerInt[54]
-			        lEyeMidX = clmTrackerInt[55]
-			        rEyeMidY = clmTrackerInt[64]
-			        rEyeMidX = clmTrackerInt[65]
-			        lEyeCornerY = max(lEyeMidY - (imgH // 2), 0)
-			        lEyeCornerX = max(lEyeMidX - (imgW // 2), 0)
-			        rEyeCornerY = max(rEyeMidY - (imgH // 2), 0)
-			        rEyeCornerX = max(rEyeMidX - (imgW // 2), 0)
+					lEyeMidY = clmTrackerInt[54]
+					lEyeMidX = clmTrackerInt[55]
+					rEyeMidY = clmTrackerInt[64]
+					rEyeMidX = clmTrackerInt[65]
+					lEyeCornerY = max(lEyeMidY - (imgH // 2), 0)
+					lEyeCornerX = max(lEyeMidX - (imgW // 2), 0)
+					rEyeCornerY = max(rEyeMidY - (imgH // 2), 0)
+					rEyeCornerX = max(rEyeMidX - (imgW // 2), 0)
 
-			        image = cv2.imread('/course/cs143/datasets/webgazer/framesdataset/' + frameFilename[2:],0) / 255
+					image = cv2.imread('/course/cs143/datasets/webgazer/framesdataset/' + frameFilename[2:],0) / 255
 
-			        lEye = image[lEyeCornerY:lEyeCornerY + imgH, lEyeCornerX:lEyeCornerX + imgW]
-			        rEye = image[rEyeCornerY:lEyeCornerY + imgH, rEyeCornerX:rEyeCornerX + imgW]
-			        bEye = np.concatenate((lEye, rEye), axis=1)
+					lEye = image[lEyeCornerY:lEyeCornerY + imgH, lEyeCornerX:lEyeCornerX + imgW]
+					rEye = image[rEyeCornerY:rEyeCornerY + imgH, rEyeCornerX:rEyeCornerX + imgW]
+					try:
+						bEye = np.concatenate((lEye, rEye), axis=1)
+					except:
+						cv2.imshow('image', lEye)
+						cv2.waitKey(0)
+						cv2.imshow('image', rEye)
+						cv2.waitKey(0)
 
-			        trainREyes.append(rEye)
-			        trainLEyes.append(lEye)
-			        trainEyes.append(bEye)
-			        trainRLabelsY.append(tobiiRightEyeGazeY)
-			        trainRLabelsX.append(tobiiRightEyeGazeX)
-			        trainLLabelsY.append(tobiiLeftEyeGazeY)
-			        trainLLabelsX.append(tobiiLeftEyeGazeX)
-			        trainLabelsY.append(tobiiEyeGazeY)
-			        trainLabelsX.append(tobiiEyeGazeX)
+					trainREyes.append(rEye)
+					trainLEyes.append(lEye)
+					trainEyes.append(bEye)
+					trainRLabelsY.append(tobiiRightEyeGazeY)
+					trainRLabelsX.append(tobiiRightEyeGazeX)
+					trainLLabelsY.append(tobiiLeftEyeGazeY)
+					trainLLabelsX.append(tobiiLeftEyeGazeX)
+					trainLabelsY.append(tobiiEyeGazeY)
+					trainLabelsX.append(tobiiEyeGazeX)
+
+		print('Building Testing Data')
 
 		for path in pTestPaths:
 			predPath = '/course/cs143/datasets/webgazer/framesdataset/' + path + '/gazePredictions.csv'
 
 			with open(predPath) as f:
-    			readCSV = csv.reader(f, delimiter=',')
-    			for row in readCSV:
+				readCSV = csv.reader(f, delimiter=',')
+				for row in readCSV:
 
-			        frameFilename = row[0]
-			        frameTimestamp = row[1]
-			        tobiiLeftEyeGazeX = float( row[2] )
-			        tobiiLeftEyeGazeY = float( row[3] )
-			        tobiiRightEyeGazeX = float( row[4] )
-			        tobiiRightEyeGazeY = float( row[5] )
-			        webgazerX = float( row[6] )
-			        webgazerY = float( row[7] )
-			        clmTracker = row[8:len(row)-1]
-			        clmTracker = [float(i) for i in clmTracker]
-			        clmTrackerInt = [int(i) for i in clmTracker]
+					frameFilename = row[0]
+					frameTimestamp = row[1]
+					tobiiLeftEyeGazeX = float( row[2] )
+					tobiiLeftEyeGazeY = float( row[3] )
+					tobiiRightEyeGazeX = float( row[4] )
+					tobiiRightEyeGazeY = float( row[5] )
+					webgazerX = float( row[6] )
+					webgazerY = float( row[7] )
+					clmTracker = row[8:len(row)-1]
+					clmTracker = [float(m) for m in clmTracker]
+					clmTrackerInt = [int(m) for m in clmTracker]
 
-			        tobiiEyeGazeX = (tobiiLeftEyeGazeX + tobiiRightEyeGazeX) / 2
-			        tobiiEyeGazeY = (tobiiLeftEyeGazeY + tobiiRightEyeGazeY) / 2
+					tobiiEyeGazeX = (tobiiLeftEyeGazeX + tobiiRightEyeGazeX) / 2
+					tobiiEyeGazeY = (tobiiLeftEyeGazeY + tobiiRightEyeGazeY) / 2
 
-			        lEyeMidY = clmTrackerInt[54]
-			        lEyeMidX = clmTrackerInt[55]
-			        rEyeMidY = clmTrackerInt[64]
-			        rEyeMidX = clmTrackerInt[65]
-			        lEyeCornerY = max(lEyeMidY - (imgH // 2), 0)
-			        lEyeCornerX = max(lEyeMidX - (imgW // 2), 0)
-			        rEyeCornerY = max(rEyeMidY - (imgH // 2), 0)
-			        rEyeCornerX = max(rEyeMidX - (imgW // 2), 0)
+					lEyeMidY = clmTrackerInt[54]
+					lEyeMidX = clmTrackerInt[55]
+					rEyeMidY = clmTrackerInt[64]
+					rEyeMidX = clmTrackerInt[65]
+					lEyeCornerY = max(lEyeMidY - (imgH // 2), 0)
+					lEyeCornerX = max(lEyeMidX - (imgW // 2), 0)
+					rEyeCornerY = max(rEyeMidY - (imgH // 2), 0)
+					rEyeCornerX = max(rEyeMidX - (imgW // 2), 0)
 
-			        image = cv2.imread('/course/cs143/datasets/webgazer/framesdataset/' + frameFilename[2:],0) / 255
+					image = cv2.imread('/course/cs143/datasets/webgazer/framesdataset/' + frameFilename[2:],0) / 255
 
-			        lEye = image[lEyeCornerY:lEyeCornerY + imgH, lEyeCornerX:lEyeCornerX + imgW]
-			        rEye = image[rEyeCornerY:lEyeCornerY + imgH, rEyeCornerX:rEyeCornerX + imgW]
-			        bEye = np.concatenate((lEye, rEye), axis=1)
+					lEye = image[lEyeCornerY:lEyeCornerY + imgH, lEyeCornerX:lEyeCornerX + imgW]
+					rEye = image[rEyeCornerY:rEyeCornerY + imgH, rEyeCornerX:rEyeCornerX + imgW]
+					bEye = np.concatenate((lEye, rEye), axis=1)
 
-			        testREyes.append(rEye)
-			        testLEyes.append(lEye)
-			        testEyes.append(bEye)
-			        testRLabelsY.append(tobiiRightEyeGazeY)
-			        testRLabelsX.append(tobiiRightEyeGazeX)
-			        testLLabelsY.append(tobiiLeftEyeGazeY)
-			        testLLabelsX.append(tobiiLeftEyeGazeX)
-			        testLabelsY.append(tobiiEyeGazeY)
-			        testLabelsX.append(tobiiEyeGazeX)
+					testREyes.append(rEye)
+					testLEyes.append(lEye)
+					testEyes.append(bEye)
+					testRLabelsY.append(tobiiRightEyeGazeY)
+					testRLabelsX.append(tobiiRightEyeGazeX)
+					testLLabelsY.append(tobiiLeftEyeGazeY)
+					testLLabelsX.append(tobiiLeftEyeGazeX)
+					testLabelsY.append(tobiiEyeGazeY)
+					testLabelsX.append(tobiiEyeGazeX)
 
-			        testGazerY.append(webgazerY)
-			        testGazerX.append(webgazerX)
+					testGazerY.append(webgazerY)
+					testGazerX.append(webgazerX)
 
 		trainNum = len(trainLabelsY)
 		testNum = len(testLabelsY)
 
 		####################################### Training #######################################
 
+		print('Training')
+
 		# Left Eye Y
+		print('Training Left Eye Y')
 		sess.run(tf.global_variables_initializer())
 
 		for l in range(epochNum):
 			for j in range(trainNum // batchSz):
 				framesProcessed += 1
-				if framesProcessed % 1000:
+				if framesProcessed % 1000 == 0:
 					print('Frames Batches Processed:', framesProcessed)
 
 				x = []
 				for k in range(j * batchSz, (j + 1) * batchSz):
 					x += [trainLEyes[k]]
-				np.array(x).reshape(batchSz, imgH, imgW, 1)
+				x = np.array(x).reshape(batchSz, imgH, imgW, 1)
 				y = np.array(trainLLabelsY[j * batchSz:(j + 1) * batchSz]).reshape(batchSz, 1)
-				debugloss, _ = ses.run([loss, train], feed_dict={imgBatch: x, labels: y})
-				if framesProcessed % 10:
+				debugloss, logs, _ = sess.run([loss, logits, train], feed_dict={imgBatch: x, labels: y})
+				if framesProcessed % 100 == 0:
 					print('debug loss:', debugloss)
+					print(logs)
 
 		saver.save(sess, "CNNmodels/leftEyeY.ckpt")
 
 		# Left Eye X
+		print('Training Left Eye X')
 		sess.run(tf.global_variables_initializer())
 
 		for l in range(epochNum):
@@ -245,13 +276,14 @@ for i in range(65):
 				x = []
 				for k in range(j * batchSz, (j + 1) * batchSz):
 					x += [trainLEyes[k]]
-				np.array(x).reshape(batchSz, imgH, imgW, 1)
+				x = np.array(x).reshape(batchSz, imgH, imgW, 1)
 				y = np.array(trainLLabelsX[j * batchSz:(j + 1) * batchSz]).reshape(batchSz, 1)
-				ses.run(train, feed_dict={imgBatch: x, labels: y})
+				sess.run(train, feed_dict={imgBatch: x, labels: y})
 
 		saver.save(sess, "CNNmodels/leftEyeX.ckpt")
 
 		# Right Eye Y
+		print('Training Right Eye Y')
 		sess.run(tf.global_variables_initializer())
 
 		for l in range(epochNum):
@@ -259,13 +291,14 @@ for i in range(65):
 				x = []
 				for k in range(j * batchSz, (j + 1) * batchSz):
 					x += [trainREyes[k]]
-				np.array(x).reshape(batchSz, imgH, imgW, 1)
+				x = np.array(x).reshape(batchSz, imgH, imgW, 1)
 				y = np.array(trainRLabelsY[j * batchSz:(j + 1) * batchSz]).reshape(batchSz, 1)
-				ses.run(train, feed_dict={imgBatch: x, labels: y})
+				sess.run(train, feed_dict={imgBatch: x, labels: y})
 
 		saver.save(sess, "CNNmodels/rightEyeY.ckpt")
 
 		# Right Eye X
+		print('Training Right Eye X')
 		sess.run(tf.global_variables_initializer())
 
 		for l in range(epochNum):
@@ -273,13 +306,15 @@ for i in range(65):
 				x = []
 				for k in range(j * batchSz, (j + 1) * batchSz):
 					x += [trainREyes[k]]
-				np.array(x).reshape(batchSz, imgH, imgW, 1)
+				x = np.array(x).reshape(batchSz, imgH, imgW, 1)
 				y = np.array(trainRLabelsX[j * batchSz:(j + 1) * batchSz]).reshape(batchSz, 1)
-				ses.run(train, feed_dict={imgBatch: x, labels: y})
+				sess.run(train, feed_dict={imgBatch: x, labels: y})
 
 		saver.save(sess, "CNNmodels/rightEyeX.ckpt")
 
 		####################################### Testing #######################################
+
+		print('Testing')
 
 		LeftY = []
 		LeftX = []
@@ -291,18 +326,17 @@ for i in range(65):
 
 		for j in range(testNum // batchSz):
 			testsProcessed += 1
-				if testsProcessed % 1000:
-					print('Frames Batches Processed:', testsProcessed)
+			if testsProcessed % 1000 == 0:
+				print('Frames Batches Processed:', testsProcessed)
 
 			x = []
 			for k in range(j * batchSz, (j + 1) * batchSz):
 				x += [testLEyes[k]]
-			np.array(x).reshape(batchSz, imgH, imgW, 1)
+			x = np.array(x).reshape(batchSz, imgH, imgW, 1)
 			y = np.array(testLLabelsY[j * batchSz:(j + 1) * batchSz]).reshape(batchSz, 1)
-			LY = ses.run(coordinate, feed_dict={imgBatch: x, labels: y})
-			print(LY)
-			print(np.shape(LY))
-			leftY += LY
+			LY = sess.run(coordinates, feed_dict={imgBatch: x, labels: y})
+			LY = np.ndarray.tolist(np.reshape(LY, [batchSz]))
+			LeftY += LY
 
 		# Left Eye X Test
 		saver.restore(sess, "CNNmodels/leftEyeX.ckpt")
@@ -311,9 +345,10 @@ for i in range(65):
 			x = []
 			for k in range(j * batchSz, (j + 1) * batchSz):
 				x += [testLEyes[k]]
-			np.array(x).reshape(batchSz, imgH, imgW, 1)
+			x = np.array(x).reshape(batchSz, imgH, imgW, 1)
 			y = np.array(testLLabelsX[j * batchSz:(j + 1) * batchSz]).reshape(batchSz, 1)
-			LX = ses.run(coordinate, feed_dict={imgBatch: x, labels: y})
+			LX = sess.run(coordinates, feed_dict={imgBatch: x, labels: y})
+			LX = np.ndarray.tolist(np.reshape(LX, [batchSz]))
 			LeftX += LX
 
 		# Right Eye Y Test
@@ -323,9 +358,10 @@ for i in range(65):
 			x = []
 			for k in range(j * batchSz, (j + 1) * batchSz):
 				x += [testREyes[k]]
-			np.array(x).reshape(batchSz, imgH, imgW, 1)
+			x = np.array(x).reshape(batchSz, imgH, imgW, 1)
 			y = np.array(testRLabelsY[j * batchSz:(j + 1) * batchSz]).reshape(batchSz, 1)
-			RY = ses.run(coordinate, feed_dict={imgBatch: x, labels: y})
+			RY = sess.run(coordinates, feed_dict={imgBatch: x, labels: y})
+			RY = np.ndarray.tolist(np.reshape(RY, [batchSz]))
 			RightY += RY
 
 		# Right Eye X Test
@@ -335,9 +371,10 @@ for i in range(65):
 			x = []
 			for k in range(j * batchSz, (j + 1) * batchSz):
 				x += [testREyes[k]]
-			np.array(x).reshape(batchSz, imgH, imgW, 1)
+			x = np.array(x).reshape(batchSz, imgH, imgW, 1)
 			y = np.array(testRLabelsX[j * batchSz:(j + 1) * batchSz]).reshape(batchSz, 1)
-			RX = ses.run(coordinate, feed_dict={imgBatch: x, labels: y})
+			RX = sess.run(coordinates, feed_dict={imgBatch: x, labels: y})
+			RX = np.ndarray.tolist(np.reshape(RX, [batchSz]))
 			RightX += RX
 
 
@@ -367,10 +404,46 @@ for i in range(65):
 		testYDists = list(map(lambda x, y: abs(x - y), testY, trueY))
 		testXDists = list(map(lambda x, y: abs(x - y), testX, trueX))
 
-		testLeftYDists = list(map(lambda x, y: abs(x - y), leftY, trueLeftY))
-		testLeftXDists = list(map(lambda x, y: abs(x - y), leftX, trueLeftX))
-		testRightYDists = list(map(lambda x, y: abs(x - y), rightY, trueRightY))
-		testRightXDists = list(map(lambda x, y: abs(x - y), rightX, trueRightX))
+		testLeftYDists = list(map(lambda x, y: abs(x - y), LeftY, trueLeftY))
+		testLeftXDists = list(map(lambda x, y: abs(x - y), LeftX, trueLeftX))
+		testRightYDists = list(map(lambda x, y: abs(x - y), RightY, trueRightY))
+		testRightXDists = list(map(lambda x, y: abs(x - y), RightX, trueRightX))
 
-		
+
+
+		avgGazerDist = sum(gazerDists) / float(resultNum)
+		avgGazerYDist = sum(gazerYDists) / float(resultNum)
+		avgGazerXDist = sum(gazerXDists) / float(resultNum)
+
+		avgTestDist = sum(testDists) / float(resultNum)
+		avgTestYDist = sum(testYDists) / float(resultNum)
+		avgTestXDist = sum(testXDists) / float(resultNum)
+
+		avgTestLeftYDist = sum(testLeftYDists) / float(resultNum)
+		avgTestLeftXDist = sum(testLeftXDists) / float(resultNum)
+		avgTestRightYDist = sum(testRightYDists) / float(resultNum)
+		avgTestRightXDist = sum(testRightXDists) / float(resultNum)
+
+		print('~')
+		print('Person %d Results:' % i)
+		print('Average Distance:', avgTestDist)
+		print('Average Webgazer Distance:', avgGazerDist)
+		print('Average X Distance:', avgTestXDist)
+		print('Average Y Distance:', avgTestYDist)
+		print('~')
+
+		with open('CNNresults/results.csv', 'wb') as csvfile:
+			wr = csv.writer(csvfile, dialect='excel')
+			wr.writerow([
+				i, 
+				avgTestDist, 
+				avgTestYDist, 
+				avgTestXDist,
+				avgTestLeftYDist,
+				avgTestLeftXDist,
+				avgTestRightYDist,
+				avgTestRightXDist,
+				avgGazerDist, 
+				avgGazerYDist, 
+				avgGazerXDist])
 

@@ -27,18 +27,26 @@ print(z)
 
 print(z[1:2])
 
-state = tf.Variable(0, name="counter")
+# state = tf.Variable(0, name="counter")
 
-one = tf.constant(1)
-new_value = tf.add(state, one)
-update = tf.assign(state, new_value)
+# one = tf.constant(1)
+# new_value = tf.add(state, one)
+# update = tf.assign(state, new_value)
 
-sess = tf.Session()
+# sess = tf.Session()
 
-for i in range(2):
+# for i in range(2):
 	
-	sess.run(tf.global_variables_initializer())
-	print(sess.run(state))
-	for _ in range(3):
-		sess.run(update)
-		print(sess.run(state))
+# 	sess.run(tf.global_variables_initializer())
+# 	print(sess.run(state))
+# 	for _ in range(3):
+# 		sess.run(update)
+# 		print(sess.run(state))
+
+hero = np.zeros([8, 1])
+
+print(hero)
+
+nero = np.ndarray.tolist(np.reshape(hero, [8]))
+
+print(nero)
