@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 from time import gmtime, strftime
 
-with open('CNNresults/results.csv', 'wb') as csvfile:
+with open('CNNresults/results.csv', 'a') as csvfile:
 	wr = csv.writer(csvfile, dialect='excel')
 	wr.writerow(['Time Stamp:', strftime("%Y-%m-%d %H:%M:%S", gmtime())])
 
@@ -71,8 +71,6 @@ def cnn(batch):
 
 logits = tf.layers.dense(inputs=cnn(imgBatch), units=1)
 coordinates = logits
-#loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels))
-#loss = tf.reduce_mean(tf.metrics.mean_squared_error(labels, logits))
 loss = tf.reduce_mean(tf.square(tf.subtract(logits, labels)))
 train = tf.train.AdamOptimizer(learnRate).minimize(loss)
 
@@ -171,6 +169,9 @@ for i in range(65):
 					try:
 						bEye = np.concatenate((lEye, rEye), axis=1)
 					except:
+						print('Eye Concat Error')
+						print(np.shape(lEye))
+						print(np.shape(rEye))
 						cv2.imshow('image', lEye)
 						cv2.waitKey(0)
 						cv2.imshow('image', rEye)
@@ -223,7 +224,16 @@ for i in range(65):
 
 					lEye = image[lEyeCornerY:lEyeCornerY + imgH, lEyeCornerX:lEyeCornerX + imgW]
 					rEye = image[rEyeCornerY:rEyeCornerY + imgH, rEyeCornerX:rEyeCornerX + imgW]
-					bEye = np.concatenate((lEye, rEye), axis=1)
+					try:
+						bEye = np.concatenate((lEye, rEye), axis=1)
+					except:
+						print('Eye Concat Error')
+						print(np.shape(lEye))
+						print(np.shape(rEye))
+						cv2.imshow('image', lEye)
+						cv2.waitKey(0)
+						cv2.imshow('image', rEye)
+						cv2.waitKey(0)
 
 					testREyes.append(rEye)
 					testLEyes.append(lEye)
@@ -250,6 +260,10 @@ for i in range(65):
 		sess.run(tf.global_variables_initializer())
 
 		for l in range(epochNum):
+			zipped = list(zip(trainREyes, trainLEyes, trainRLabelsY, trainRLabelsX, trainLabelsY, trainLLabelsX))
+			rand.shuffle(zipped)
+			trainREyes, trainLEyes, trainRLabelsY, trainRLabelsX, trainLabelsY, trainLLabelsX = zip(*zipped)
+
 			for j in range(trainNum // batchSz):
 				framesProcessed += 1
 				if framesProcessed % 1000 == 0:
@@ -272,7 +286,15 @@ for i in range(65):
 		sess.run(tf.global_variables_initializer())
 
 		for l in range(epochNum):
+			zipped = list(zip(trainREyes, trainLEyes, trainRLabelsY, trainRLabelsX, trainLabelsY, trainLLabelsX))
+			rand.shuffle(zipped)
+			trainREyes, trainLEyes, trainRLabelsY, trainRLabelsX, trainLabelsY, trainLLabelsX = zip(*zipped)
+
 			for j in range(trainNum // batchSz):
+				framesProcessed += 1
+				if framesProcessed % 1000 == 0:
+					print('Frames Batches Processed:', framesProcessed)
+
 				x = []
 				for k in range(j * batchSz, (j + 1) * batchSz):
 					x += [trainLEyes[k]]
@@ -287,7 +309,15 @@ for i in range(65):
 		sess.run(tf.global_variables_initializer())
 
 		for l in range(epochNum):
+			zipped = list(zip(trainREyes, trainLEyes, trainRLabelsY, trainRLabelsX, trainLabelsY, trainLLabelsX))
+			rand.shuffle(zipped)
+			trainREyes, trainLEyes, trainRLabelsY, trainRLabelsX, trainLabelsY, trainLLabelsX = zip(*zipped)
+
 			for j in range(trainNum // batchSz):
+				framesProcessed += 1
+				if framesProcessed % 1000 == 0:
+					print('Frames Batches Processed:', framesProcessed)
+
 				x = []
 				for k in range(j * batchSz, (j + 1) * batchSz):
 					x += [trainREyes[k]]
@@ -302,7 +332,15 @@ for i in range(65):
 		sess.run(tf.global_variables_initializer())
 
 		for l in range(epochNum):
+			zipped = list(zip(trainREyes, trainLEyes, trainRLabelsY, trainRLabelsX, trainLabelsY, trainLLabelsX))
+			rand.shuffle(zipped)
+			trainREyes, trainLEyes, trainRLabelsY, trainRLabelsX, trainLabelsY, trainLLabelsX = zip(*zipped)
+			
 			for j in range(trainNum // batchSz):
+				framesProcessed += 1
+				if framesProcessed % 1000 == 0:
+					print('Frames Batches Processed:', framesProcessed)
+
 				x = []
 				for k in range(j * batchSz, (j + 1) * batchSz):
 					x += [trainREyes[k]]
@@ -430,9 +468,13 @@ for i in range(65):
 		print('Average Webgazer Distance:', avgGazerDist)
 		print('Average X Distance:', avgTestXDist)
 		print('Average Y Distance:', avgTestYDist)
+		print('Average Left X Distance:', avgTestLeftXDist)
+		print('Average Right X Distance:', avgTestRightXDist)
+		print('Average Left Y Distance:', avgTestLeftYDist)
+		print('Average Right Y Distance:', avgTestRightYDist)
 		print('~')
 
-		with open('CNNresults/results.csv', 'wb') as csvfile:
+		with open('CNNresults/results.csv', 'a') as csvfile:
 			wr = csv.writer(csvfile, dialect='excel')
 			wr.writerow([
 				i, 
