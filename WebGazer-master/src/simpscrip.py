@@ -12,14 +12,14 @@ print(len(clmTracker))
 
 print(x.split("/")[0])
 
-with open('/course/cs143/datasets/webgazer/framesdataset/train_1430_1.txt') as f:
-    trainPaths = f.readlines()
+#with open('/course/cs143/datasets/webgazer/framesdataset/train_1430_1.txt') as f:
+#    trainPaths = f.readlines()
 
-pTrainPaths = list(map(lambda x: x.replace("\\", "/").replace("\n", ""), filter(lambda x: x.split("\\")[0] == 'P_' + str(1), trainPaths)))
+#pTrainPaths = list(map(lambda x: x.replace("\\", "/").replace("\n", ""), filter(lambda x: x.split("\\")[0] == 'P_' + str(1), trainPaths)))
 
-print(pTrainPaths)
-print('')
-print(y[0][1:])
+#print(pTrainPaths)
+#print('')
+#print(y[0][1:])
 
 z = np.zeros(10)
 
@@ -33,8 +33,10 @@ one = tf.constant(1)
 new_value = tf.add(state, one)
 update = tf.assign(state, new_value)
 
+sess = tf.Session()
+
 for i in range(2):
-	sess = tf.Session()
+	
 	sess.run(tf.global_variables_initializer())
 	print(sess.run(state))
 	for _ in range(3):

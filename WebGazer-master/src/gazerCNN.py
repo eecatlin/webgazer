@@ -14,6 +14,7 @@ import tensorflow as tf
 batchSz = 8
 imgW = 50
 imgH = 42
+epochNum = 1
 learnRate = 0.001
 
 ######################################################################################
@@ -51,24 +52,30 @@ def cnn(batch):
     	inputs=conv3, 
     	pool_size=[2, 2], 
     	strides=2)
+
+    flatten = tf.reshape()
     feature_vector = tf.layers.dense(
 		inputs=pool3,
-		units= ,
+		units=4096,
 		activation=tf.nn.relu)
 
 	return feature_vector
 
-logits = tf.layers.dense()
-distance = 
-loss = 
+logits = tf.layers.dense(inputs=cnn(imgBatch), units=1)
+coordinates = logits
+loss = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels)
 train = tf.train.AdamOptimizer(learnRate).minimize(loss)
 
 sess = tf.Session()
-sess.run(tf.global_variables_initializer())
+saver = tf.train.Saver()
 
 ######################################################################################
 ################################## Data Processing ###################################
 ######################################################################################
+
+peopleProcessed = 0
+framesProcessed = 0
+testsProcessed = 0
 
 with open('/course/cs143/datasets/webgazer/framesdataset/train_1430_1.txt') as f:
     trainPaths = f.readlines()
@@ -81,6 +88,10 @@ for i in range(65):
 	pTestPaths = list(map(lambda x: x.replace("\\", "/").replace("\n", ""), filter(lambda x: x.split("/")[0] == 'P_' + str(i), testPaths)))
 
 	if len(pTrainPaths) != 0 and len(pTestPaths) != 0:
+		peopleProcessed += 1
+		if peopleProcessed % 10 == 0:
+			print('People Processed:', peopleProcessed)
+
 		trainREyes = []
 		trainLEyes = []
 		trainEyes = []
@@ -100,6 +111,9 @@ for i in range(65):
 		testLLabelsX = []
 		testLabelsY = []
 		testLabelsX = []
+
+		testGazerY = []
+        testGazerX = []
 
 		for path in pTrainPaths:
 			predPath = '/course/cs143/datasets/webgazer/framesdataset/' + path + '/gazePredictions.csv'
@@ -195,31 +209,168 @@ for i in range(65):
 			        testLabelsY.append(tobiiEyeGazeY)
 			        testLabelsX.append(tobiiEyeGazeX)
 
+			        testGazerY.append(webgazerY)
+			        testGazerX.append(webgazerX)
+
 		trainNum = len(trainLabelsY)
 		testNum = len(testLabelsY)
 
-		# Left Eye Y
-		for j in range(trainNum // batchSz):
+		####################################### Training #######################################
 
-			ses.run(train, feed_dict={img: imgs, ans: anss})
+		# Left Eye Y
+		sess.run(tf.global_variables_initializer())
+
+		for l in range(epochNum):
+			for j in range(trainNum // batchSz):
+				framesProcessed += 1
+				if framesProcessed % 1000:
+					print('Frames Batches Processed:', framesProcessed)
+
+				x = []
+				for k in range(j * batchSz, (j + 1) * batchSz):
+					x += [trainLEyes[k]]
+				np.array(x).reshape(batchSz, imgH, imgW, 1)
+				y = np.array(trainLLabelsY[j * batchSz:(j + 1) * batchSz]).reshape(batchSz, 1)
+				debugloss, _ = ses.run([loss, train], feed_dict={imgBatch: x, labels: y})
+				if framesProcessed % 10:
+					print('debug loss:', debugloss)
+
+		saver.save(sess, "CNNmodels/leftEyeY.ckpt")
 
 		# Left Eye X
-		for j in range(trainNum // batchSz):
+		sess.run(tf.global_variables_initializer())
 
-			ses.run(train, feed_dict={img: imgs, ans: anss})
+		for l in range(epochNum):
+			for j in range(trainNum // batchSz):
+				x = []
+				for k in range(j * batchSz, (j + 1) * batchSz):
+					x += [trainLEyes[k]]
+				np.array(x).reshape(batchSz, imgH, imgW, 1)
+				y = np.array(trainLLabelsX[j * batchSz:(j + 1) * batchSz]).reshape(batchSz, 1)
+				ses.run(train, feed_dict={imgBatch: x, labels: y})
+
+		saver.save(sess, "CNNmodels/leftEyeX.ckpt")
 
 		# Right Eye Y
-		for j in range(trainNum // batchSz):
+		sess.run(tf.global_variables_initializer())
 
-			ses.run(train, feed_dict={img: imgs, ans: anss})
+		for l in range(epochNum):
+			for j in range(trainNum // batchSz):
+				x = []
+				for k in range(j * batchSz, (j + 1) * batchSz):
+					x += [trainREyes[k]]
+				np.array(x).reshape(batchSz, imgH, imgW, 1)
+				y = np.array(trainRLabelsY[j * batchSz:(j + 1) * batchSz]).reshape(batchSz, 1)
+				ses.run(train, feed_dict={imgBatch: x, labels: y})
+
+		saver.save(sess, "CNNmodels/rightEyeY.ckpt")
 
 		# Right Eye X
-		for j in range(trainNum // batchSz):
+		sess.run(tf.global_variables_initializer())
 
-			ses.run(train, feed_dict={img: imgs, ans: anss})
+		for l in range(epochNum):
+			for j in range(trainNum // batchSz):
+				x = []
+				for k in range(j * batchSz, (j + 1) * batchSz):
+					x += [trainREyes[k]]
+				np.array(x).reshape(batchSz, imgH, imgW, 1)
+				y = np.array(trainRLabelsX[j * batchSz:(j + 1) * batchSz]).reshape(batchSz, 1)
+				ses.run(train, feed_dict={imgBatch: x, labels: y})
+
+		saver.save(sess, "CNNmodels/rightEyeX.ckpt")
+
+		####################################### Testing #######################################
+
+		LeftY = []
+		LeftX = []
+		RightY = []
+		RightX = []
+
+		# Left Eye Y Test
+		saver.restore(sess, "CNNmodels/leftEyeY.ckpt")
+
+		for j in range(testNum // batchSz):
+			testsProcessed += 1
+				if testsProcessed % 1000:
+					print('Frames Batches Processed:', testsProcessed)
+
+			x = []
+			for k in range(j * batchSz, (j + 1) * batchSz):
+				x += [testLEyes[k]]
+			np.array(x).reshape(batchSz, imgH, imgW, 1)
+			y = np.array(testLLabelsY[j * batchSz:(j + 1) * batchSz]).reshape(batchSz, 1)
+			LY = ses.run(coordinate, feed_dict={imgBatch: x, labels: y})
+			print(LY)
+			print(np.shape(LY))
+			leftY += LY
+
+		# Left Eye X Test
+		saver.restore(sess, "CNNmodels/leftEyeX.ckpt")
+
+		for j in range(testNum // batchSz):
+			x = []
+			for k in range(j * batchSz, (j + 1) * batchSz):
+				x += [testLEyes[k]]
+			np.array(x).reshape(batchSz, imgH, imgW, 1)
+			y = np.array(testLLabelsX[j * batchSz:(j + 1) * batchSz]).reshape(batchSz, 1)
+			LX = ses.run(coordinate, feed_dict={imgBatch: x, labels: y})
+			LeftX += LX
+
+		# Right Eye Y Test
+		saver.restore(sess, "CNNmodels/rightEyeY.ckpt")
+
+		for j in range(testNum // batchSz):
+			x = []
+			for k in range(j * batchSz, (j + 1) * batchSz):
+				x += [testREyes[k]]
+			np.array(x).reshape(batchSz, imgH, imgW, 1)
+			y = np.array(testRLabelsY[j * batchSz:(j + 1) * batchSz]).reshape(batchSz, 1)
+			RY = ses.run(coordinate, feed_dict={imgBatch: x, labels: y})
+			RightY += RY
+
+		# Right Eye X Test
+		saver.restore(sess, "CNNmodels/rightEyeX.ckpt")
+
+		for j in range(testNum // batchSz):
+			x = []
+			for k in range(j * batchSz, (j + 1) * batchSz):
+				x += [testREyes[k]]
+			np.array(x).reshape(batchSz, imgH, imgW, 1)
+			y = np.array(testRLabelsX[j * batchSz:(j + 1) * batchSz]).reshape(batchSz, 1)
+			RX = ses.run(coordinate, feed_dict={imgBatch: x, labels: y})
+			RightX += RX
 
 
+		resultNum = len(LeftY)
 
-		for j in range(trainNum // batchSz):
+		trueY = testLabelsY[:resultNum]
+		trueX = testLabelsX[:resultNum]
 
-			ses.run(distance, feed_dict={img: imgs, ans: anss})
+		trueLeftY = testLLabelsY[:resultNum]
+		trueLeftX = testLLabelsX[:resultNum]
+		trueRightY = testRLabelsY[:resultNum]
+		trueRightX = testRLabelsX[:resultNum]
+
+		gazerY = testGazerY[:resultNum]
+		gazerX = testGazerX[:resultNum]
+
+		testY = list(map(lambda x, y: float(x + y) / 2, LeftY, RightY))
+		testX = list(map(lambda x, y: float(x + y) / 2, LeftX, RightX))
+
+		gazerDists = list(map(lambda x, y, z, w: ((x - z) ** 2 + (y - w) ** 2) ** 0.5, gazerY, gazerX, trueY, trueX))
+
+		gazerYDists = list(map(lambda x, y: abs(x - y), gazerY, trueY))
+		gazerXDists = list(map(lambda x, y: abs(x - y), gazerX, trueX))
+
+		testDists = list(map(lambda x, y, z, w: ((x - z) ** 2 + (y - w) ** 2) ** 0.5, testY, testX, trueY, trueX))
+
+		testYDists = list(map(lambda x, y: abs(x - y), testY, trueY))
+		testXDists = list(map(lambda x, y: abs(x - y), testX, trueX))
+
+		testLeftYDists = list(map(lambda x, y: abs(x - y), leftY, trueLeftY))
+		testLeftXDists = list(map(lambda x, y: abs(x - y), leftX, trueLeftX))
+		testRightYDists = list(map(lambda x, y: abs(x - y), rightY, trueRightY))
+		testRightXDists = list(map(lambda x, y: abs(x - y), rightX, trueRightX))
+
+		
+
