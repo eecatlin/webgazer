@@ -92,10 +92,13 @@ with open('/course/cs143/datasets/webgazer/framesdataset/train_1430_1.txt') as f
 with open('/course/cs143/datasets/webgazer/framesdataset/test_1430_1.txt') as f:
 	testPaths = f.readlines()
 
+# Goes through every possible person ID
 for i in range(65):
+	# For each possible person ID, builds a list of relevent data paths
 	pTrainPaths = list(map(lambda x: x.replace("\\", "/").replace("\n", ""), filter(lambda x: x.split("\\")[0] == 'P_' + str(i), trainPaths)))
 	pTestPaths = list(map(lambda x: x.replace("\\", "/").replace("\n", ""), filter(lambda x: x.split("\\")[0] == 'P_' + str(i), testPaths)))
 
+	# Checks if a P_<Num> ID has data associated with it, if not skips it
 	if len(pTrainPaths) != 0 and len(pTestPaths) != 0:
 		peopleProcessed += 1
 		if peopleProcessed % 1 == 0:
@@ -128,16 +131,20 @@ for i in range(65):
 
 		print('Building Training Data')
 
+		# Goes through each data directory of frames for the person
 		for path in pTrainPaths:
+			# Gets the path of the gazePredictions.csv so to run through it and build data points
 			predPath = '/course/cs143/datasets/webgazer/framesdataset/' + path + '/gazePredictions.csv'
 
 			with open(predPath) as f:
 				readCSV = csv.reader(f, delimiter=',')
+				# Goes through each row of the CSV
 				for row in readCSV:
 					framesProcessed += 1
 					if framesProcessed % 5000 == 0:
 						print('Collected data from %d frames' % framesProcessed)
 
+					# Grab the file name, tobii results, webgzer results, and setup the clmTracker data
 					frameFilename = row[0]
 					frameTimestamp = row[1]
 					tobiiLeftEyeGazeX = float( row[2] )
@@ -153,6 +160,7 @@ for i in range(65):
 					tobiiEyeGazeX = (tobiiLeftEyeGazeX + tobiiRightEyeGazeX) / 2
 					tobiiEyeGazeY = (tobiiLeftEyeGazeY + tobiiRightEyeGazeY) / 2
 
+					# Gets the eye mid points and the top left corner of each eye region
 					lEyeMidY = clmTrackerInt[54]
 					lEyeMidX = clmTrackerInt[55]
 					rEyeMidY = clmTrackerInt[64]
@@ -162,10 +170,15 @@ for i in range(65):
 					rEyeCornerY = max(rEyeMidY - (imgH // 2), 0)
 					rEyeCornerX = max(rEyeMidX - (imgW // 2), 0)
 
+					# reads in the image for the specific frame
 					image = cv2.imread('/course/cs143/datasets/webgazer/framesdataset/' + frameFilename[2:],0) / 255
 
+					# grab the two eye images
 					lEye = image[lEyeCornerY:lEyeCornerY + imgH, lEyeCornerX:lEyeCornerX + imgW]
 					rEye = image[rEyeCornerY:rEyeCornerY + imgH, rEyeCornerX:rEyeCornerX + imgW]
+					# Concatenates the two images into a single one
+					# (I don't use this, because I don't train on one image of both eyes
+					# But it's useful to build anyways to debug whether the eye images are ok)
 					try:
 						bEye = np.concatenate((lEye, rEye), axis=1)
 					except:
@@ -177,6 +190,10 @@ for i in range(65):
 						cv2.imshow('image', rEye)
 						cv2.waitKey(0)
 
+					# append each data point to its relevant data set
+					# currently neither training nor testing uses trainEyes, and I never use
+					# the trainLabelsY or trainLabelsX for training, though their corresponding
+					# values get used in testing
 					trainREyes.append(rEye)
 					trainLEyes.append(lEye)
 					trainEyes.append(bEye)
@@ -189,6 +206,7 @@ for i in range(65):
 
 		print('Building Testing Data')
 
+		# Similar to the building training data
 		for path in pTestPaths:
 			predPath = '/course/cs143/datasets/webgazer/framesdataset/' + path + '/gazePredictions.csv'
 
@@ -257,10 +275,12 @@ for i in range(65):
 
 		# Left Eye Y
 		print('Training Left Eye Y')
+		#Initialize all variables
 		sess.run(tf.global_variables_initializer())
 
+		# For each epoch shuffle the data, then go through it
 		for l in range(epochNum):
-			zipped = list(zip(trainREyes, trainLEyes, trainRLabelsY, trainRLabelsX, trainLabelsY, trainLLabelsX))
+			zipped = list(zip(trainREyes, trainLEyes, trainRLabelsY, trainRLabelsX, trainLLabelsY, trainLLabelsX))
 			rand.shuffle(zipped)
 			trainREyes, trainLEyes, trainRLabelsY, trainRLabelsX, trainLabelsY, trainLLabelsX = zip(*zipped)
 
@@ -269,6 +289,7 @@ for i in range(65):
 				if framesProcessed % 1000 == 0:
 					print('Frames Batches Processed:', framesProcessed)
 
+				# Build the imgBatch x, and labels y, then feed them into the feedDict and train
 				x = []
 				for k in range(j * batchSz, (j + 1) * batchSz):
 					x += [trainLEyes[k]]
@@ -279,6 +300,7 @@ for i in range(65):
 					print('debug loss:', debugloss)
 					print(logs)
 
+		# Save the relevant model for the eye and coordinate
 		saver.save(sess, "CNNmodels/leftEyeY.ckpt")
 
 		# Left Eye X
@@ -335,7 +357,7 @@ for i in range(65):
 			zipped = list(zip(trainREyes, trainLEyes, trainRLabelsY, trainRLabelsX, trainLabelsY, trainLLabelsX))
 			rand.shuffle(zipped)
 			trainREyes, trainLEyes, trainRLabelsY, trainRLabelsX, trainLabelsY, trainLLabelsX = zip(*zipped)
-			
+
 			for j in range(trainNum // batchSz):
 				framesProcessed += 1
 				if framesProcessed % 1000 == 0:
@@ -361,17 +383,21 @@ for i in range(65):
 
 		# Left Eye Y Test
 		saver.restore(sess, "CNNmodels/leftEyeY.ckpt")
+		# restore the relevant model
 
+		# Go through the test data
 		for j in range(testNum // batchSz):
 			testsProcessed += 1
 			if testsProcessed % 1000 == 0:
 				print('Frames Batches Processed:', testsProcessed)
 
+			# Build x and y for the feedDict
 			x = []
 			for k in range(j * batchSz, (j + 1) * batchSz):
 				x += [testLEyes[k]]
 			x = np.array(x).reshape(batchSz, imgH, imgW, 1)
 			y = np.array(testLLabelsY[j * batchSz:(j + 1) * batchSz]).reshape(batchSz, 1)
+			# get back coordinates from the model and append them to the results set
 			LY = sess.run(coordinates, feed_dict={imgBatch: x, labels: y})
 			LY = np.ndarray.tolist(np.reshape(LY, [batchSz]))
 			LeftY += LY
@@ -415,6 +441,7 @@ for i in range(65):
 			RX = np.ndarray.tolist(np.reshape(RX, [batchSz]))
 			RightX += RX
 
+		####################################### Results #######################################
 
 		resultNum = len(LeftY)
 
