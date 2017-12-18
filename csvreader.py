@@ -2,7 +2,7 @@ import csv
 import sys
 import re
 
-#Usage: csvreader.py <path_to_file> [Only Use First 3 Participants]
+#Usage: csvreader.py <path_to_file> [Flag: Only Use First 3 Participants]
 
 def main():
 	print("Calculating average accuracy...")
@@ -19,7 +19,7 @@ def main():
 	     num = 0
 	     total = 0 
 	     for row in reader:
-	     	if row[1] != 'NaN' and not undef.match(row[0]) and (argLen < 3 or pattern1.match(row[0]) or pattern2.match(row[0]) or pattern3.match(row[0])):
+	     	if row[1] != 'nan' and not undef.match(row[0]) and (argLen < 3 or pattern1.match(row[0]) or pattern2.match(row[0]) or pattern3.match(row[0])):
 	     		num += 1
 	     		total += float(row[1])
 	     print("Average accuracy:")

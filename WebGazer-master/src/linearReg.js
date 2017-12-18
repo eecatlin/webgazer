@@ -68,11 +68,7 @@
      * @param dataMax - The maximum data to run kmeans on
      * @returns {Array.Array} 2D array of k random cluster centroids
      */
-    webgazer.reg.LinearReg.prototype.initializeMeans = function(k, dataMin, dataMax) {
-        if (!k) {
-            k = 4;
-        }
-        
+    webgazer.reg.LinearReg.initializeMeans = function(k, dataMin, dataMax) {
         var means = [];
         for (var i = 0; i < k; i++) {
             var mean = [];
@@ -90,8 +86,7 @@
      * @param data - The data to run kmeans on
      * @returns {Array.Array} 2D array of the closest cluster centroids for each data point
      */
-    webgazer.reg.LinearReg.prototype.kMeansCluster = function(k, data, means) {
-        
+    webgazer.reg.LinearReg.kMeansCluster = function(k, data, means) {
         closestCentroids = [];
         for (var x in data) {
             var distances = [];
@@ -117,8 +112,8 @@
      * @param data - The data to run kmeans on
      * @returns {Array.Array} 2D array of k means
      */
-    webgazer.reg.LinearReg.prototype.kMeans = function(k, data) {
-        //calculate data extremes
+    webgazer.reg.LinearReg.kMeans = function(k, data) {
+        //calculate the data extremes
         var dataMin = [];
         var dataMax = [];
         for (var i in data) {
@@ -137,45 +132,53 @@
         }
 
         //initialize k random cluster centroids
-        var means = initializeMeans(k, dataMin, dataMax);
-        var closestCentroids = kMeansCluster(k, data, means);
+        var means = webgazer.reg.LinearReg.initializeMeans(k, dataMin, dataMax);
+        var closestCentroids = webgazer.reg.LinearReg.kMeansCluster(k, data, means);
+        //Have our cluster centroids moved?
+        var hasMoved = true;
+        var iterations = 0;
 
-        //Have our cluster centroids moved
-        var hasMoved = false;
-        var timesMoved = 0;
-
-        while (!hasMoved || timesMoved < 50) {
+        while (hasMoved && iterations < 10) {
             var dimensionSums = []; //sum of the data points dimensions
-            var numPoints = []; //number of data points that we are averaging dimensions of
+            var numDataPoints = []; //number of data points that we are averaging dimensions of
+            for (var i in means) {
+                numDataPoints[i] = 0;
+                dimensionSums[i] = Array(means[i].length);
+                for (var dim in means[i]) {
+                    dimensionSums[i][dim] = 0;
+                }
+            }
 
             for (var i in closestCentroids) {
                 var idx = closestCentroids[i];
-                numPoints[idx]++;
+                numDataPoints[idx]++;
                 for (var dim in means[idx]) {
-                    sums[idx][dim] += data[i][dim];
+                    dimensionSums[idx][dim] += data[i][dim];
                 }
             }
 
             for (var i in dimensionSums) {
                 //If a mean has no points:
-                if (numPoints[i] == 0) {
+                if (numDataPoints[i] == 0) {
                     for (var dim in dataMin) {
                         dimensionSums[i][dim] = dataMin[dim] + Math.random() * (dataMax[dim] - dataMin[dim]);
                     }
                 }
                 //If a mean has points: 
                 for (var dim in dimensionSums[i]) {
-                    dimensionSums[i][dim] /= numPoints[i];
+                    if (numDataPoints[i] != 0) {
+                        dimensionSums[i][dim] /= numDataPoints[i];
+                    }
                 }
             }
 
             //check if the cluster centroids have moved:
-            if (means.toString() != dimensionSums.toString()) {
-                hasMoved = true;
+            if (means.toString() == dimensionSums.toString()) {
+                hasMoved = false;
             }
 
-            means = sums;
-            timesMoved++;
+            means = dimensionSums;
+            iterations++;
         }
         return means;
     };
@@ -190,13 +193,13 @@
         if (!eyesObj) {
             return null;
         }
+
         //Before performing linear regression, we will cluster the data using k-means
-        //TODO
         var numClusters = 5;
-        var leftXKMeans = kMeans(numClusters, this.leftDatasetX);
-        var leftYKMeans = kMeans(numClusters, this.leftDatasetY);
-        var rightXKMeans = kMeans(numClusters, this.rightDatasetX);
-        var rightYKMeans = kMeans(numClusters, this.rightDatasetY);
+        var leftXKMeans = webgazer.reg.LinearReg.kMeans(numClusters, this.leftDatasetX);
+        var leftYKMeans = webgazer.reg.LinearReg.kMeans(numClusters, this.leftDatasetY);
+        var rightXKMeans = webgazer.reg.LinearReg.kMeans(numClusters, this.rightDatasetX);
+        var rightYKMeans = webgazer.reg.LinearReg.kMeans(numClusters, this.rightDatasetY);
 
         //var result = regression('linear', this.leftDatasetX);
         var result = regression('linear', leftXKMeans);
@@ -220,6 +223,10 @@
         
         webgazer.pupil.getPupils(eyesObj);
 
+        if(!eyesObj.left.pupil || !eyesObj.right.pupil) {
+            return null;
+        }
+
         var leftPupilX = eyesObj.left.pupil[0][0];
         var leftPupilY = eyesObj.left.pupil[0][1];
 
@@ -239,6 +246,6 @@
      * The LinearReg object name
      * @type {string}
      */
-    webgazer.reg.LinearReg.prototype.name = 'simple'; //Maybe change this to linear?
+    webgazer.reg.LinearReg.prototype.name = 'simple';
     
 }(window));

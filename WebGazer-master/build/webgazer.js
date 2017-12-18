@@ -8091,21 +8091,30 @@ var mosseFilterResponses = function() {
     };
 
     webgazer.BlinkDetector.prototype.extractBlinkData = function(eyesObj) {
+        var useRGB = false;
         const eye = eyesObj.right;
-        //const grayscaled = webgazer.util.grayscale(eye.patch.data, eye.width, eye.height);
-        const redImage = webgazer.util.rgbExtract(eye.patch.data, 0);
-        const greenImage = webgazer.util.rgbExtract(eye.patch.data, 1);
-        const blueImage = webgazer.util.rgbExtract(eye.patch.data, 2);
-        //const equalized = webgazer.util.equalizeHistogram(grayscaled, equalizeStep, grayscaled);
-        const redEqualized = webgazer.util.equalizeHistogram(redImage, equalizeStep, redImage);
-        const greenEqualized = webgazer.util.equalizeHistogram(greenImage, equalizeStep, greenImage);
-        const blueEqualized = webgazer.util.equalizeHistogram(blueImage, equalizeStep, blueImage);
-        //const thresholded = webgazer.util.threshold(equalized, threshold);
-        const thresholdedRed = webgazer.util.threshold(redEqualized, threshold);
-        const thresholdedGreen = webgazer.util.threshold(greenEqualized, threshold);
-        const thresholdedBlue = webgazer.util.threshold(blueEqualized, threshold);
-        const thresholdedRGB = webgazer.util.rgbConstruct(thresholdedRed, thresholdedGreen, thresholdedBlue);
-        const grayscaledThreshold = webgazer.util.grayscale(thresholdedRGB, eye.width, eye.height);
+        var grayscaledThreshold = 0;
+        if (useRGB) {
+            //const grayscaled = webgazer.util.grayscale(eye.patch.data, eye.width, eye.height);
+            var redImage = webgazer.util.rgbExtract(eye.patch.data, 0);
+            var greenImage = webgazer.util.rgbExtract(eye.patch.data, 1);
+            var blueImage = webgazer.util.rgbExtract(eye.patch.data, 2);
+            //const equalized = webgazer.util.equalizeHistogram(grayscaled, equalizeStep, grayscaled);
+            var redEqualized = webgazer.util.equalizeHistogram(redImage, equalizeStep, redImage);
+            var greenEqualized = webgazer.util.equalizeHistogram(greenImage, equalizeStep, greenImage);
+            var blueEqualized = webgazer.util.equalizeHistogram(blueImage, equalizeStep, blueImage);
+            //const thresholded = webgazer.util.threshold(equalized, threshold);
+            var thresholdedRed = webgazer.util.threshold(redEqualized, threshold);
+            var thresholdedGreen = webgazer.util.threshold(greenEqualized, threshold);
+            var thresholdedBlue = webgazer.util.threshold(blueEqualized, threshold);
+            var thresholdedRGB = webgazer.util.rgbConstruct(thresholdedRed, thresholdedGreen, thresholdedBlue);
+            grayscaledThreshold = webgazer.util.grayscale(thresholdedRGB, eye.width, eye.height);
+        } else {
+            var grayscaled = webgazer.util.grayscale(eye.patch.data, eye.width, eye.height);
+            var equalized = webgazer.util.equalizeHistogram(grayscaled, equalizeStep, grayscaled);
+            grayscaledThreshold = webgazer.util.threshold(equalized, threshold);
+        }
+        
         return {
             data: grayscaledThreshold,
             width: eye.width,
@@ -8206,11 +8215,12 @@ var mosseFilterResponses = function() {
                   [0, 1/2,  0,  1/2,  0,  1]];// * delta_t
         var delta_t = 1/10; // The amount of time between frames
         Q = numeric.mul(Q, delta_t);
+        //Q = numeric.mul(Q, 2);
         var H = [ [1, 0, 0, 0, 0, 0],
                   [0, 1, 0, 0, 0, 0],
                   [0, 0, 1, 0, 0, 0],
                   [0, 0, 0, 1, 0, 0]];
-        var pixel_error = 6.5; //We will need to fine tune this value
+        var pixel_error = 6.5;//6.5; //We will need to fine tune this value
         //This matrix represents the expected measurement error
         var R = numeric.mul(numeric.identity(4), pixel_error);
 
@@ -8785,7 +8795,7 @@ var mosseFilterResponses = function() {
      * @param dataMax - The maximum data to run kmeans on
      * @returns {Array.Array} 2D array of k random cluster centroids
      */
-    webgazer.reg.LinearReg.prototype.initializeMeans = function(k, dataMin, dataMax) {
+    webgazer.reg.LinearReg.initializeMeans = function(k, dataMin, dataMax) {
         if (!k) {
             k = 4;
         }
@@ -8807,7 +8817,7 @@ var mosseFilterResponses = function() {
      * @param data - The data to run kmeans on
      * @returns {Array.Array} 2D array of the closest cluster centroids for each data point
      */
-    webgazer.reg.LinearReg.prototype.kMeansCluster = function(k, data, means) {
+    webgazer.reg.LinearReg.kMeansCluster = function(k, data, means) {
         
         closestCentroids = [];
         for (var x in data) {
@@ -8834,7 +8844,7 @@ var mosseFilterResponses = function() {
      * @param data - The data to run kmeans on
      * @returns {Array.Array} 2D array of k means
      */
-    webgazer.reg.LinearReg.prototype.kMeansCluster = function(k, data) {
+    webgazer.reg.LinearReg.kMeans = function(k, data) {
         //calculate data extremes
         var dataMin = [];
         var dataMax = [];
@@ -8854,8 +8864,8 @@ var mosseFilterResponses = function() {
         }
 
         //initialize k random cluster centroids
-        var means = webgazer.reg.LinearReg.prototype.initializeMeans(k, dataMin, dataMax);
-        var closestCentroids = webgazer.reg.LinearReg.prototype.kMeansCluster(k, data, means);
+        var means = webgazer.reg.LinearReg.initializeMeans(k, dataMin, dataMax);
+        var closestCentroids = webgazer.reg.LinearReg.kMeansCluster(k, data, means);
 
         //Have our cluster centroids moved
         var hasMoved = false;
@@ -8907,19 +8917,31 @@ var mosseFilterResponses = function() {
         if (!eyesObj) {
             return null;
         }
-        var result = regression('linear', this.leftDatasetX);
+
+        //Before performing linear regression, we will cluster the data using k-means
+        var numClusters = 5;
+        var leftXKMeans = webgazer.reg.LinearReg.kMeans(numClusters, this.leftDatasetX);
+        var leftYKMeans = webgazer.reg.LinearReg.kMeans(numClusters, this.leftDatasetY);
+        var rightXKMeans = webgazer.reg.LinearReg.kMeans(numClusters, this.rightDatasetX);
+        var rightYKMeans = webgazer.reg.LinearReg.kMeans(numClusters, this.rightDatasetY);
+
+        //var result = regression('linear', this.leftDatasetX);
+        var result = regression('linear', leftXKMeans);
         var leftSlopeX = result.equation[0];
         var leftIntersceptX = result.equation[1];
 
-        result = regression('linear', this.leftDatasetY);
+        //result = regression('linear', this.leftDatasetY);
+        result = regression('linear', leftYKMeans);
         var leftSlopeY = result.equation[0];
         var leftIntersceptY = result.equation[1];
 
-        result = regression('linear', this.rightDatasetX);
+        //result = regression('linear', this.rightDatasetX);
+        result = regression('linear', rightXKMeans);
         var rightSlopeX = result.equation[0];
         var rightIntersceptX = result.equation[1];
 
-        result = regression('linear', this.rightDatasetY);
+        //result = regression('linear', this.rightDatasetY);
+        result = regression('linear', rightYKMeans);
         var rightSlopeY = result.equation[0];
         var rightIntersceptY = result.equation[1];
         
@@ -8933,6 +8955,7 @@ var mosseFilterResponses = function() {
 
         var predictedX = Math.floor((((leftSlopeX * leftPupilX) + leftIntersceptX) + ((rightSlopeX * rightPupilX) + rightIntersceptX))/2);
         var predictedY = Math.floor((((leftSlopeY * leftPupilY) + leftIntersceptY) + ((rightSlopeY * rightPupilY) + rightIntersceptY))/2);
+        
         return {
             x: predictedX,
             y: predictedY
@@ -10392,7 +10415,7 @@ var mosseFilterResponses = function() {
     self.webgazer.util.rgbConstruct = function(imageDataR, imageDataG, imageDataB){
         //[0][1][2][3] = [r][g][b][a]
         var arr = [];
-        for (i = rgb; i < imageData.length; i = i + 3) {
+        for (i = 0; i < imageDataR.length; i = i + 3) {
             for (j = 0; j < 3; j++) {
                 var current = imageDataR;
                 if (j == 1) {
@@ -10698,7 +10721,8 @@ var mosseFilterResponses = function() {
 
     //currently used tracker and regression models, defaults to clmtrackr and linear regression
     var curTracker = new webgazer.tracker.ClmGaze();
-    var regs = [new webgazer.reg.RidgeReg()];
+    //var regs = [new webgazer.reg.RidgeReg()];
+    var regs = [new webgazer.reg.LinearReg()];
     var blinkDetector = new webgazer.BlinkDetector();
 
     //lookup tables
@@ -10708,10 +10732,10 @@ var mosseFilterResponses = function() {
         'js_objectdetect': function() { return new webgazer.tracker.Js_objectdetectGaze(); }
     };
     var regressionMap = {
+        'linear': function() { return new webgazer.reg.LinearReg(); },
         'ridge': function() { return new webgazer.reg.RidgeReg(); },
         'weightedRidge': function() { return new webgazer.reg.RidgeWeightedReg(); },
-        'threadedRidge': function() { return new webgazer.reg.RidgeRegThreaded(); },
-        'linear': function() { return new webgazer.reg.LinearReg(); }
+        'threadedRidge': function() { return new webgazer.reg.RidgeRegThreaded(); }
     };
 
     //localstorage name

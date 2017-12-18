@@ -22,26 +22,27 @@
 
     webgazer.BlinkDetector.prototype.extractBlinkData = function(eyesObj) {
         var useRGB = true;
+        const eye = eyesObj.right;
+        var grayscaledThreshold = 0;
         if (useRGB) {
-            const eye = eyesObj.right;
             //const grayscaled = webgazer.util.grayscale(eye.patch.data, eye.width, eye.height);
-            const redImage = webgazer.util.rgbExtract(eye.patch.data, 0);
-            const greenImage = webgazer.util.rgbExtract(eye.patch.data, 1);
-            const blueImage = webgazer.util.rgbExtract(eye.patch.data, 2);
+            var redImage = webgazer.util.rgbExtract(eye.patch.data, 0);
+            var greenImage = webgazer.util.rgbExtract(eye.patch.data, 1);
+            var blueImage = webgazer.util.rgbExtract(eye.patch.data, 2);
             //const equalized = webgazer.util.equalizeHistogram(grayscaled, equalizeStep, grayscaled);
-            const redEqualized = webgazer.util.equalizeHistogram(redImage, equalizeStep, redImage);
-            const greenEqualized = webgazer.util.equalizeHistogram(greenImage, equalizeStep, greenImage);
-            const blueEqualized = webgazer.util.equalizeHistogram(blueImage, equalizeStep, blueImage);
+            var redEqualized = webgazer.util.equalizeHistogram(redImage, equalizeStep, redImage);
+            var greenEqualized = webgazer.util.equalizeHistogram(greenImage, equalizeStep, greenImage);
+            var blueEqualized = webgazer.util.equalizeHistogram(blueImage, equalizeStep, blueImage);
             //const thresholded = webgazer.util.threshold(equalized, threshold);
-            const thresholdedRed = webgazer.util.threshold(redEqualized, threshold);
-            const thresholdedGreen = webgazer.util.threshold(greenEqualized, threshold);
-            const thresholdedBlue = webgazer.util.threshold(blueEqualized, threshold);
-            const thresholdedRGB = webgazer.util.rgbConstruct(thresholdedRed, thresholdedGreen, thresholdedBlue);
-            const grayscaledThreshold = webgazer.util.grayscale(thresholdedRGB, eye.width, eye.height);
+            var thresholdedRed = webgazer.util.threshold(redEqualized, threshold);
+            var thresholdedGreen = webgazer.util.threshold(greenEqualized, threshold);
+            var thresholdedBlue = webgazer.util.threshold(blueEqualized, threshold);
+            var thresholdedRGB = webgazer.util.rgbConstruct(thresholdedRed, thresholdedGreen, thresholdedBlue);
+            grayscaledThreshold = webgazer.util.grayscale(thresholdedRGB, eye.width, eye.height);
         } else {
-            const grayscaled = webgazer.util.grayscale(eye.patch.data, eye.width, eye.height);
-            const equalized = webgazer.util.equalizeHistogram(grayscaled, equalizeStep, grayscaled);
-            const grayscaledThresholded = webgazer.util.threshold(equalized, threshold);
+            var grayscaled = webgazer.util.grayscale(eye.patch.data, eye.width, eye.height);
+            var equalized = webgazer.util.equalizeHistogram(grayscaled, equalizeStep, grayscaled);
+            grayscaledThreshold = webgazer.util.threshold(equalized, threshold);
         }
         
         return {
