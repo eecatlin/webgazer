@@ -1,0 +1,5 @@
+model_checkpoint_path: "rightEyeX.ckpt"
+all_model_checkpoint_paths: "leftEyeY.ckpt"
+all_model_checkpoint_paths: "leftEyeX.ckpt"
+all_model_checkpoint_paths: "rightEyeY.ckpt"
+all_model_checkpoint_paths: "rightEyeX.ckpt"
